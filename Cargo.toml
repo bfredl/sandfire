@@ -1,0 +1,33 @@
+[package]
+name = "sandfire"
+version = "0.1.0"
+edition = "2024"
+
+# Standalone app: declare its own (empty) workspace so it doesn't get pulled
+# into a surrounding workspace.
+[workspace]
+
+[[bin]]
+name = "sandfire"
+test = false
+
+[dependencies]
+deluge = { package = "deluge-sdk", path = "/home/bfredl/dev/deluge-sdk/crates/deluge-sdk" }
+# The SDK owns the async executor (selected per-target), so apps depend only on
+# `deluge` for it. embassy-time is used directly for `Timer`.
+embassy-time = { version = "0.5", features = ["tick-hz-1_000_000"] }
+
+[features]
+default = []
+## Opt-in RTT (SEGGER) logging over a debug probe; off by default (reserves no RAM).
+rtt = ["deluge/rtt"]
+## Desktop simulator backend; `cargo deluge sim` enables it.
+sim = ["deluge/sim"]
+## Native Linux backend; build with `cargo deluge linux --features linux`.
+linux = ["deluge/linux"]
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+debug = true
