@@ -1,3 +1,7 @@
+//! Butchered parts of deluge-sdk/firmwares/app-loader/src, mainly devupload.rs
+//! mostly because I could, probably should upstream moving parts from the app-loader
+//! to the deluge-sdk crate
+//!
 //! USB **dev-mode upload** listener: a background CDC-ACM serial endpoint that
 //! receives a framed ELF straight from the host (`cargo deluge run`) and loads +
 //! launches it to RAM — the same hand-off the SD `/APPS/` boot path uses, but
@@ -174,14 +178,12 @@ async fn receive(rx: Receiver<'static, Rusb1Driver<'static>>) -> ! {
     loop {
         // Resync to the frame magic, then read the fixed header tail.
         reader.sync_to_magic().await;
-        warn!("DEVRELOAD: synced");
         let mut tail = [0u8; HEADER_TAIL];
         reader.read_exact(&mut tail).await;
         let version = tail[0];
         let _flags = tail[1];
         let len = u32::from_le_bytes([tail[2], tail[3], tail[4], tail[5]]);
         let expect_crc = u32::from_le_bytes([tail[6], tail[7], tail[8], tail[9]]);
-        warn!("DEVRELOAD: thing");
 
         if version != VERSION || len < 52 || len > MAX_UPLOAD {
             warn!("DEVRELOAD: bad header (version={version}, len={len}); resyncing");
@@ -762,8 +764,8 @@ pub static UPLOAD_ACTIVE: core::sync::atomic::AtomicBool =
     core::sync::atomic::AtomicBool::new(false);
 
 
-    // main.rs
-    //
+// main.rs
+//
 /// Stop all autonomous peripheral activity before branching to the app.
 ///
 /// Must run after `cortex_ar::interrupt::disable()` and before the launch.
