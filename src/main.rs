@@ -11,42 +11,24 @@ mod devreload;
 
 use deluge::prelude::*;
 use embassy_time::Timer;
+use embassy_futures::select::select;
 
-use deluge_bsp::oled::{self, FrameBuffer, WIDTH};
 #[deluge::app]
 async fn main(dlg: Deluge) {
-
-    // oled::init().await;
+    // tricky: devreload requires oled already set up
     _ = dlg.oled().await;
-    let mut first = true;
-    loop {
-        use embassy_futures::select::{Either, select};
 
-        let listener = devreload::prepare();
-        match select(
-            app_main(&dlg, first),
-            listener.run(),
-        ).await
-        {
-            Either::First(sel) => sel,
-            Either::Second(never) => never,
-        }
-        first = false;
-    }
-
+    let listener = devreload::prepare();
+    // join doesn't work:p
+    select(app_main(dlg), listener.run()).await;
 }
 
-async fn app_main(dlg: &Deluge, first: bool) {
-    // The platform (heaps, clocks, interrupts, executor, panic handler) is
-    // already up. Capabilities are taken from the `dlg` handle:
-    //   let mut oled = dlg.oled().await;
-    //   let input = dlg.input();
-    //   let mut pads = dlg.pads().await;
+async fn app_main(dlg: Deluge) {
     let mut leds = dlg.leds().await;
     let mut flip = true;
     loop {
-        if first {leds.set(controls::button::PLAY, flip).await }
-        Timer::after_millis(200).await;
+        leds.set(controls::button::PLAY, flip).await;
+        Timer::after_millis(500).await;
         flip = !flip;
         // warn!("achtung?");
     }

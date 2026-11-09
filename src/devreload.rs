@@ -689,18 +689,7 @@ use deluge_bsp::oled::text::draw_str;
 use deluge_bsp::oled::{self, FrameBuffer, WIDTH};
 
 const VISIBLE_ROWS: usize = 4;
-/// Top padding in pixels.  The Deluge OLED panel's top 5 rows sit off the
-/// visible area, so all content is shifted down to start at row 5 (matches the
-/// demo/controller firmware's `TOPMOST = 5`).
 const TOP_PAD: usize = 5;
-/// Pixel row of the title bar.
-const TITLE_ROW: usize = TOP_PAD;
-/// Pixel row of the separator line.
-const SEPARATOR_ROW: usize = TOP_PAD + 8;
-/// Pixel row of the first entry line.
-const ENTRY_START_ROW: usize = TOP_PAD + 11;
-/// Height of one entry in pixels (one page = 8 rows).
-const ENTRY_HEIGHT: usize = 8;
 
 /// Display a static error or status message centred on the OLED.
 pub async fn show_message(line1: &[u8], line2: &[u8]) {
