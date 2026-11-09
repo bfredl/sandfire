@@ -12,10 +12,19 @@ name = "sandfire"
 test = false
 
 [dependencies]
-deluge = { package = "deluge-sdk", path = "/home/bfredl/dev/deluge-sdk/crates/deluge-sdk" }
+deluge = { package = "deluge-sdk", path = "../crates/deluge-sdk", features = ["usb-log"] }
 # The SDK owns the async executor (selected per-target), so apps depend only on
 # `deluge` for it. embassy-time is used directly for `Timer`.
 embassy-time = { version = "0.5", features = ["tick-hz-1_000_000"] }
+embassy-usb = "0.6.0"
+embassy-futures = "0.1.2"
+deluge-image = { path = "../crates/deluge-image" }
+rza1-hal = { path = "../rza1/rza1-hal", features = ["rza1l"] }
+cortex-ar = "0.3"
+## can delenda all feats??
+deluge-bsp = { path = "..//crates/deluge-bsp", features = ["usb-msc", "zero-init-below-image"] }
+
+log = "0.4"
 
 [features]
 default = []
