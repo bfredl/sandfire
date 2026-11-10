@@ -33,7 +33,9 @@ async fn app_main(dlg: Deluge) {
         let res = select(input.next(), Timer::after_millis(500)).await;
         match res {
             Either::First(sel) => match sel {
-                Event::Encoder { .. } => led.toggle(),
+                // Event::Encoder { .. } => led.toggle(),
+                Event::Button { id:31 , pressed:true } => sound_main(&dlg).await,
+
                 _ => {},
             },
             Either::Second(whatevs) => {
@@ -43,4 +45,20 @@ async fn app_main(dlg: Deluge) {
         };
         // warn!("achtung?");
     }
+}
+
+/// Cubic soft saturator: `1.5x - 0.5x³`, output in [-1, 1].
+#[inline]
+fn soft_clip(x: f32) -> f32 {
+    let x = x.clamp(-1.0, 1.0);
+    1.5 * x - 0.5 * x * x * x
+}
+async fn sound_main(dlg: &Deluge) {
+    let drive = 2.5;
+    dlg.audio() .process(move |block: &mut [StereoFrame]| {
+        for f in block {
+            f.l = soft_clip(f.l * drive);
+            f.r = soft_clip(f.r * drive);
+        }
+    }).await
 }
