@@ -11,7 +11,7 @@ mod devreload;
 
 use deluge::prelude::*;
 use embassy_time::Timer;
-use embassy_futures::select::select;
+use embassy_futures::select::{select, Either};
 
 #[deluge::app]
 async fn main(dlg: Deluge) {
@@ -25,11 +25,22 @@ async fn main(dlg: Deluge) {
 
 async fn app_main(dlg: Deluge) {
     let mut leds = dlg.leds().await;
+    let mut led = dlg.sync_led();
+    let input = dlg.input();
     let mut flip = true;
     loop {
-        leds.set(controls::button::PLAY, flip).await;
-        Timer::after_millis(500).await;
-        flip = !flip;
+        // this resets the timer on input, but whatever
+        let res = select(input.next(), Timer::after_millis(500)).await;
+        match res {
+            Either::First(sel) => match sel {
+                Event::Encoder { .. } => led.toggle(),
+                _ => {},
+            },
+            Either::Second(whatevs) => {
+                leds.set(controls::button::PLAY, flip).await;
+                flip = !flip;
+            },
+        };
         // warn!("achtung?");
     }
 }
