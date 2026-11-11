@@ -26,6 +26,9 @@ deluge-bsp = { path = "..//crates/deluge-bsp", features = ["usb-msc", "zero-init
 
 log = "0.4"
 
+[build-dependencies]
+cc = "1"
+
 [features]
 default = []
 ## Opt-in RTT (SEGGER) logging over a debug probe; off by default (reserves no RAM).
