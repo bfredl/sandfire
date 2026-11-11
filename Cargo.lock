@@ -229,7 +229,7 @@ dependencies = [
 
 [[package]]
 name = "arm-dsp"
-version = "0.1.1"
+version = "0.2.0"
 
 [[package]]
 name = "arm-targets"
@@ -1129,13 +1129,14 @@ dependencies = [
 
 [[package]]
 name = "deluge-bsp"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "aligned",
  "block-device-driver",
  "cortex-ar",
  "critical-section",
  "deluge-flash-protect",
+ "deluge-image",
  "deluge-usb-classes",
  "embassy-executor",
  "embassy-futures",
@@ -1161,26 +1162,26 @@ dependencies = [
 
 [[package]]
 name = "deluge-fixedpoint"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "arm-dsp",
 ]
 
 [[package]]
 name = "deluge-flash-protect"
-version = "0.1.1"
+version = "0.2.0"
 
 [[package]]
 name = "deluge-image"
-version = "0.1.1"
+version = "0.2.0"
 
 [[package]]
 name = "deluge-panel-protocol"
-version = "0.1.1"
+version = "0.2.0"
 
 [[package]]
 name = "deluge-sdk"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "aligned",
  "block-device-driver",
@@ -1209,7 +1210,7 @@ dependencies = [
 
 [[package]]
 name = "deluge-sdk-macros"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1237,7 +1238,7 @@ dependencies = [
 
 [[package]]
 name = "deluge-usb-classes"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "critical-section",
  "embassy-futures",
@@ -2960,7 +2961,7 @@ dependencies = [
 
 [[package]]
 name = "max5136"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "embedded-hal 1.0.0",
 ]
