@@ -54,11 +54,13 @@ fn soft_clip(x: f32) -> f32 {
     1.5 * x - 0.5 * x * x * x
 }
 async fn sound_main(dlg: &Deluge) {
+    use core::sync::atomic::Ordering;
     let drive = 2.5;
-    dlg.audio() .process(move |block: &mut [StereoFrame]| {
+    dlg.audio().process2(move |block: &mut [StereoFrame]| {
         for f in block {
             f.l = soft_clip(f.l * drive);
             f.r = soft_clip(f.r * drive);
         }
+        return !devreload::UPLOAD_ACTIVE.load(Ordering::Acquire);
     }).await
 }
