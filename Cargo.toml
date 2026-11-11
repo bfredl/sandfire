@@ -12,7 +12,7 @@ name = "sandfire"
 test = false
 
 [dependencies]
-deluge = { package = "deluge-sdk", path = "../crates/deluge-sdk", features = ["usb-log"] }
+deluge = { package = "deluge-sdk", path = "../crates/deluge-sdk", features = ["usb-log", "usb-upload"] }
 # The SDK owns the async executor (selected per-target), so apps depend only on
 # `deluge` for it. embassy-time is used directly for `Timer`.
 embassy-time = { version = "0.5", features = ["tick-hz-1_000_000"] }

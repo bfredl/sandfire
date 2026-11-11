@@ -13,14 +13,16 @@ use deluge::prelude::*;
 use embassy_time::Timer;
 use embassy_futures::select::{select, Either};
 
+use deluge::usb_upload;
+
 #[deluge::app]
 async fn main(dlg: Deluge) {
     // tricky: devreload requires oled already set up
     _ = dlg.oled().await;
 
-    let listener = devreload::prepare();
+    let listener = usb_upload::prepare();
     // join doesn't work:p
-    select(app_main(dlg), listener.run()).await;
+    select(app_main(dlg), devreload::run(listener)).await;
 }
 
 async fn app_main(dlg: Deluge) {
