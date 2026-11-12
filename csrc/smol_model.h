@@ -73,5 +73,7 @@ typedef struct {
   uint32_t prewarm_len;
 } WaveNetModel;
 
+extern WaveNetModel the_model;
+
 bool read_model(WaveNetModel *res, const uint8_t* data, size_t size, size_t max_samples);
 bool process_model(WaveNetModel *mod, float *input, float *output, size_t n_samples, float *history, size_t *history_count, float *scratch, float in_gain, float out_gain);

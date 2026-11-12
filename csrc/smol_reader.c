@@ -1,4 +1,7 @@
 #include "smol_model.h"
+#include "model_data.h"
+
+WaveNetModel the_model;
 
 // Magic number: "NAMB" as little-endian uint32
 static const uint32_t NAMB_MAGIC = 0x4E414D42;

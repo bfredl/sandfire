@@ -15,6 +15,35 @@ use embassy_futures::select::{select, Either};
 
 use deluge::usb_upload;
 
+#[repr(C)]
+struct WaveNetModel;
+
+unsafe extern "C" {
+    /// Sum every active voice's additive tone into `out` (mono, `n` samples,
+    /// overwritten). See `csrc/additive.cpp` for the full contract.
+    fn read_model(
+        out: *mut WaveNetModel,
+        n: *const u8,
+        size: usize,
+        max_samples: usize,
+    ) -> bool;
+
+    fn process_model(
+        model: *const WaveNetModel,
+        input: *const f32,
+        output: *const f32,
+        n_samples: usize,
+        history: *mut f32,
+        history_count: *mut usize,
+        scratch: *mut usize,
+        in_gain: f32,
+        out_gain: f32
+    ) -> bool;
+
+    static mut the_model: WaveNetModel;
+    static model_data: [u8; 7980];
+}
+
 #[deluge::app]
 async fn main(dlg: Deluge) {
     // tricky: devreload requires oled already set up
@@ -30,6 +59,14 @@ async fn app_main(dlg: Deluge) {
     let mut led = dlg.sync_led();
     let input = dlg.input();
     let mut flip = true;
+
+    let res = unsafe { read_model(&raw mut the_model, model_data.as_ptr(), 7980, 128) };
+    if res {
+        leds.set(controls::button::LOAD, true).await;
+    } else {
+        leds.set(controls::button::SAVE, true).await;
+    }
+
     loop {
         // this resets the timer on input, but whatever
         let res = select(input.next(), Timer::after_millis(500)).await;
