@@ -40,6 +40,13 @@ unsafe extern "C" {
         out_gain: f32
     ) -> bool;
 
+    fn model_get_sizes(
+        model: *const WaveNetModel,
+        sampel: usize,
+        history_size: *mut usize,
+        scratch_size: *mut usize,
+    );
+
     static mut the_model: WaveNetModel;
     static model_data: [u8; 7980];
 }
@@ -54,15 +61,58 @@ async fn main(dlg: Deluge) {
     select(app_main(dlg), devreload::run(listener)).await;
 }
 
+use deluge_bsp::oled::text::draw_str;
+use deluge_bsp::oled::{self, FrameBuffer, WIDTH};
+
+const VISIBLE_ROWS: usize = 4;
+const TOP_PAD: usize = 5;
+
+pub fn draw_center(fb: &mut FrameBuffer, ypos: usize, title: &[u8]) {
+    let title_x = (WIDTH.saturating_sub(title.len() * 6)) / 2;
+    draw_str(fb, title_x, ypos, title);
+}
+
+
 async fn app_main(dlg: Deluge) {
     let mut leds = dlg.leds().await;
     let mut led = dlg.sync_led();
     let input = dlg.input();
     let mut flip = true;
+    let sampel = 128;
 
-    let res = unsafe { read_model(&raw mut the_model, model_data.as_ptr(), 7980, 128) };
+    let mut history : [f64; 44544] = [0.0; 44544];
+    let mut scratch : [f64; 384] = [0.0; 384];
+
+    let mut ok_model = false;
+    let res = unsafe { read_model(&raw mut the_model, model_data.as_ptr(), 7980, sampel) };
     if res {
         leds.set(controls::button::LOAD, true).await;
+        let mut history_size = 0;
+        let mut scratch_size = 0;
+        unsafe { model_get_sizes(&raw mut the_model, sampel, &raw mut history_size, &raw mut scratch_size); }
+
+        let mut fb = FrameBuffer::new();
+        fb.fill(0x00);
+        let mut line = [0u8; 24];
+        let mut p = 0;
+        for &b in b"fooka " {
+            push(&mut line, &mut p, b);
+        }
+        // normal languages: integer
+        // rust: .TrY_iNTo().uNWrAP()
+        push_u64(&mut line, &mut p, scratch_size.try_into().unwrap());
+        draw_center(&mut fb, TOP_PAD+12, &line[..p]);
+        oled::send_frame(&fb).await;
+
+        if (history_size <= history.len() && scratch_size <= scratch.len()) {
+            ok_model = true;
+            leds.set(controls::button::SYNTH, true).await;
+        } else {
+            leds.set(controls::button::LEARN, true).await;
+        }
+
+
+
     } else {
         leds.set(controls::button::SAVE, true).await;
     }
@@ -109,3 +159,30 @@ async fn sound_main(dlg: &Deluge) {
         }
     }).await
 }
+#[inline]
+fn push(out: &mut [u8], p: &mut usize, b: u8) {
+    if *p < out.len() {
+        out[*p] = b;
+        *p += 1;
+    }
+}
+
+/// Write a base-10 integer.
+fn push_u64(out: &mut [u8], p: &mut usize, mut v: u64) {
+    if v == 0 {
+        push(out, p, b'0');
+        return;
+    }
+    let mut tmp = [0u8; 20];
+    let mut i = 0;
+    while v > 0 {
+        tmp[i] = b'0' + (v % 10) as u8;
+        v /= 10;
+        i += 1;
+    }
+    while i > 0 {
+        i -= 1;
+        push(out, p, tmp[i]);
+    }
+}
+

@@ -92,6 +92,7 @@ async fn handoff(result: LoadResult) -> ! {
 
 use deluge_bsp::oled::text::draw_str;
 use deluge_bsp::oled::{self, FrameBuffer, WIDTH};
+use crate::draw_center;
 
 const VISIBLE_ROWS: usize = 4;
 const TOP_PAD: usize = 5;
@@ -101,10 +102,8 @@ pub async fn show_message(line1: &[u8], line2: &[u8]) {
     let mut fb = FrameBuffer::new();
     fb.fill(0x00);
     // Two lines, shifted down by the panel's top padding.
-    let x1 = (WIDTH.saturating_sub(line1.len() * 6)) / 2;
-    draw_str(&mut fb, x1, TOP_PAD + 16, line1);
-    let x2 = (WIDTH.saturating_sub(line2.len() * 6)) / 2;
-    draw_str(&mut fb, x2, TOP_PAD + 28, line2);
+    draw_center(&mut fb, TOP_PAD + 16, line1);
+    draw_center(&mut fb, TOP_PAD + 28, line2);
     oled::send_frame(&fb).await;
 }
 
@@ -114,11 +113,8 @@ pub async fn show_progress(label: &[u8], percent: u8) {
     fb.fill(0x00);
 
     let title = b"LOADING APP";
-    let title_x = (WIDTH.saturating_sub(title.len() * 6)) / 2;
-    draw_str(&mut fb, title_x, TOP_PAD + 8, title);
-
-    let label_x = (WIDTH.saturating_sub(label.len() * 6)) / 2;
-    draw_str(&mut fb, label_x, TOP_PAD + 18, label);
+    draw_center(&mut fb, TOP_PAD + 8, title);
+    draw_center(&mut fb, TOP_PAD + 18, label);
 
     let bar_x = 8usize;
     let bar_y = TOP_PAD + 30;

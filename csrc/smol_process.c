@@ -7,6 +7,12 @@
 #define WH_KERNEL(kernel_size,c, o,k,m) wh_kernel[kernel_size*(k*c+m)+o]
 #endif
 
+// all are NFLOAT
+void model_get_sizes(WaveNetModel *la, size_t sampel, size_t *history_size, size_t *scratch_size) {
+  *history_size = la->history_size;
+  *scratch_size = sampel*la->n_chan;
+}
+
 bool process_model(WaveNetModel *la, float *input, float *output, size_t n_samples, float *history, size_t *history_count, float *restrict scratch, float in_gain, float out_gain) {
   float *wh = la->weights;
 
