@@ -6,6 +6,7 @@
 #![cfg_attr(target_os = "none", no_main)]
 // Required by the Embassy task the `#[deluge::app]` macro generates.
 #![feature(impl_trait_in_assoc_type)]
+// #![feature(array_ptr_get)]
 
 mod devreload;
 
@@ -35,7 +36,7 @@ unsafe extern "C" {
         n_samples: usize,
         history: *mut f32,
         history_count: *mut usize,
-        scratch: *mut usize,
+        scratch: *const f32,
         in_gain: f32,
         out_gain: f32
     ) -> bool;
@@ -72,39 +73,31 @@ pub fn draw_center(fb: &mut FrameBuffer, ypos: usize, title: &[u8]) {
     draw_str(fb, title_x, ypos, title);
 }
 
+    const sampel : usize = 128;
+    const HISTORY_LEN : usize = 44544;
+    const SCRATCH_LEN : usize = 384;
+
 
 async fn app_main(dlg: Deluge) {
     let mut leds = dlg.leds().await;
     let mut led = dlg.sync_led();
     let input = dlg.input();
     let mut flip = true;
-    let sampel = 128;
-
-    let mut history : [f64; 44544] = [0.0; 44544];
-    let mut scratch : [f64; 384] = [0.0; 384];
 
     let mut ok_model = false;
     let res = unsafe { read_model(&raw mut the_model, model_data.as_ptr(), 7980, sampel) };
+    // let res = false;
     if res {
         leds.set(controls::button::LOAD, true).await;
         let mut history_size = 0;
         let mut scratch_size = 0;
         unsafe { model_get_sizes(&raw mut the_model, sampel, &raw mut history_size, &raw mut scratch_size); }
 
-        let mut fb = FrameBuffer::new();
-        fb.fill(0x00);
-        let mut line = [0u8; 24];
-        let mut p = 0;
-        for &b in b"fooka " {
-            push(&mut line, &mut p, b);
-        }
         // normal languages: integer
         // rust: .TrY_iNTo().uNWrAP()
-        push_u64(&mut line, &mut p, scratch_size.try_into().unwrap());
-        draw_center(&mut fb, TOP_PAD+12, &line[..p]);
-        oled::send_frame(&fb).await;
+        dbg_num( b"fooka ", scratch_size.try_into().unwrap()).await;
 
-        if (history_size <= history.len() && scratch_size <= scratch.len()) {
+        if (history_size <= HISTORY_LEN && scratch_size <= SCRATCH_LEN) {
             ok_model = true;
             leds.set(controls::button::SYNTH, true).await;
         } else {
@@ -123,7 +116,7 @@ async fn app_main(dlg: Deluge) {
         match res {
             Either::First(sel) => match sel {
                 // Event::Encoder { .. } => led.toggle(),
-                Event::Button { id:31 , pressed:true } => sound_main(&dlg).await,
+                Event::Button { id:31 , pressed:true } => sound_main(&dlg, ok_model).await,
 
                 _ => {},
             },
@@ -143,8 +136,22 @@ fn soft_clip(x: f32) -> f32 {
     1.5 * x - 0.5 * x * x * x
 }
 use core::sync::atomic::Ordering;
-async fn sound_main(dlg: &Deluge) {
+
+use core::cell::UnsafeCell;
+
+#[repr(transparent)]
+pub struct UnsafeSyncCell<T: ?Sized>(pub  UnsafeCell<T>);
+unsafe impl<T: ?Sized + Sync> Sync for UnsafeSyncCell<T> {}
+
+    static mut history : [f32; HISTORY_LEN] =  [0.0; HISTORY_LEN];
+    static mut scratch : [f32; SCRATCH_LEN] = [0.0; SCRATCH_LEN];
+async fn sound_main(dlg: &Deluge, ok_model: bool) {
     let drive = 2.5;
+    let mut first = 0;
+    let mut input = [0.0; sampel];
+    let mut output = [0.0; sampel];
+    let mut history_counter : usize = 0;
+
     dlg.audio() .process(move |block: &mut [StereoFrame]| {
         if devreload::UPLOAD_ACTIVE.load(Ordering::Acquire) {
             for f in block {
@@ -153,9 +160,29 @@ async fn sound_main(dlg: &Deluge) {
             }
             return;
         }
-        for f in block {
-            f.l = soft_clip(f.l * drive);
-            f.r = soft_clip(f.r * drive);
+        if ok_model {
+            if block.len() > sampel {
+                panic!("haha yes");
+            }
+            for (i, f) in block.iter().enumerate() {
+                input[i] = f.l;
+            }
+            unsafe {
+                #[allow(static_mut_refs)]
+                let h = history.as_mut_ptr();
+                #[allow(static_mut_refs)]
+                let s = scratch.as_mut_ptr();
+                process_model(&raw mut the_model, input.as_ptr(), output.as_ptr(), block.len(), h, &raw mut history_counter, s, 0.01, 0.5);
+            }
+            for (i, f) in block.iter_mut().enumerate() {
+                f.l = output[i];
+                f.r = output[i];
+            }
+        } else {
+            for f in block {
+                f.l = soft_clip(f.l * drive);
+                f.r = soft_clip(f.r * drive);
+            }
         }
     }).await
 }
@@ -184,5 +211,20 @@ fn push_u64(out: &mut [u8], p: &mut usize, mut v: u64) {
         i -= 1;
         push(out, p, tmp[i]);
     }
+}
+
+async fn dbg_num(label: &[u8], num: u64) {
+    let mut fb = FrameBuffer::new();
+    fb.fill(0x00);
+    let mut line = [0u8; 24];
+    let mut p = 0;
+    for &b in label {
+        push(&mut line, &mut p, b);
+    }
+    // normal languages: integer
+    // rust: .TrY_iNTo().uNWrAP()
+    push_u64(&mut line, &mut p, num);
+    draw_center(&mut fb, TOP_PAD+12, &line[..p]);
+    oled::send_frame(&fb).await;
 }
 
