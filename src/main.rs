@@ -13,6 +13,7 @@ mod devreload;
 use deluge::prelude::*;
 use embassy_time::Timer;
 use embassy_futures::select::{select, Either};
+use embassy_futures::join::join;
 
 use deluge::usb_upload;
 
@@ -52,6 +53,13 @@ unsafe extern "C" {
     static model_data: [u8; 7980];
 }
 
+unsafe extern "C" {
+    /// Start of the free SRAM heap region (set by the linker script).
+    static __sram_heap_start: u8;
+    /// End of the free SRAM heap region (start of RTT/stack reservation).
+    static __sram_heap_end: u8;
+}
+
 #[deluge::app]
 async fn main(dlg: Deluge) {
     // tricky: devreload requires oled already set up
@@ -84,6 +92,11 @@ async fn app_main(dlg: Deluge) {
     let input = dlg.input();
     let mut flip = true;
 
+    let heap_start = core::ptr::addr_of!(__sram_heap_start) as *mut u8;
+    let heap_size = core::ptr::addr_of!(__sram_heap_end) as usize - heap_start as usize;
+
+    dbg_usize(b"xmas ", heap_size as usize).await;
+
     let mut ok_model = false;
     let res = unsafe { read_model(&raw mut the_model, model_data.as_ptr(), 7980, sampel) };
     // let res = false;
@@ -93,9 +106,7 @@ async fn app_main(dlg: Deluge) {
         let mut scratch_size = 0;
         unsafe { model_get_sizes(&raw mut the_model, sampel, &raw mut history_size, &raw mut scratch_size); }
 
-        // normal languages: integer
-        // rust: .TrY_iNTo().uNWrAP()
-        dbg_num( b"fooka ", scratch_size.try_into().unwrap()).await;
+        // dbg_usize( b"fooka ", scratch_size).await;
 
         if (history_size <= HISTORY_LEN && scratch_size <= SCRATCH_LEN) {
             ok_model = true;
@@ -117,9 +128,9 @@ async fn app_main(dlg: Deluge) {
             Either::First(sel) => match sel {
                 // Event::Encoder { .. } => led.toggle(),
                 Event::Button { id:31 , pressed:true } => {
-                    // sound_main(dlg.audio(), ok_model).await
-                    input_for_sound(&input, &mut leds).await
-                    // select(sound_main(dlg.audio(), ok_model), input_for_sound(&input, &mut leds)).await;
+                    //sound_main(dlg.audio(), ok_model).await
+                    // input_for_sound(&input, &mut leds).await
+                    join(sound_main(dlg.audio(), ok_model), input_for_sound(&input, &mut leds)).await;
                 },
 
                 _ => {},
@@ -147,11 +158,10 @@ use core::cell::UnsafeCell;
 pub struct UnsafeSyncCell<T: ?Sized>(pub  UnsafeCell<T>);
 unsafe impl<T: ?Sized + Sync> Sync for UnsafeSyncCell<T> {}
 
-static mut history : [f32; HISTORY_LEN] =  [0.0; HISTORY_LEN];
+// static mut history : [f32; HISTORY_LEN] =  [0.0; HISTORY_LEN];
 static mut scratch : [f32; SCRATCH_LEN] = [0.0; SCRATCH_LEN];
 
 async fn input_for_sound(input: &Input, leds: &mut Leds) {
-    let res = select(input.next(), Timer::after_millis(500)).await;
     loop {
         match input.next().await {
             Event::Button  { id: _, pressed: true }  => {
@@ -178,6 +188,9 @@ async fn sound_main(audio: Audio, ok_model: bool) {
             return;
         }
         if ok_model {
+            let heap_start = core::ptr::addr_of!(__sram_heap_start) as *mut f32;
+            let h = heap_start;
+
             if block.len() > sampel {
                 panic!("haha yes");
             }
@@ -185,8 +198,8 @@ async fn sound_main(audio: Audio, ok_model: bool) {
                 input[i] = f.l;
             }
             unsafe {
-                #[allow(static_mut_refs)]
-                let h = history.as_mut_ptr();
+                // #[allow(static_mut_refs)]
+                // let h = history.as_mut_ptr();
                 #[allow(static_mut_refs)]
                 let s = scratch.as_mut_ptr();
                 process_model(&raw mut the_model, input.as_ptr(), output.as_ptr(), block.len(), h, &raw mut history_counter, s, 0.01, 0.5);
@@ -245,3 +258,8 @@ async fn dbg_num(label: &[u8], num: u64) {
     oled::send_frame(&fb).await;
 }
 
+async fn dbg_usize(label: &[u8], num: usize) {
+    // normal languages: integer
+    // rust: .TrY_iNTo().uNWrAP()
+    dbg_num(label, num.try_into().unwrap()).await
+}
