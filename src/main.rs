@@ -116,7 +116,11 @@ async fn app_main(dlg: Deluge) {
         match res {
             Either::First(sel) => match sel {
                 // Event::Encoder { .. } => led.toggle(),
-                Event::Button { id:31 , pressed:true } => sound_main(&dlg, ok_model).await,
+                Event::Button { id:31 , pressed:true } => {
+                    // sound_main(dlg.audio(), ok_model).await
+                    input_for_sound(&input, &mut leds).await
+                    // select(sound_main(dlg.audio(), ok_model), input_for_sound(&input, &mut leds)).await;
+                },
 
                 _ => {},
             },
@@ -143,16 +147,29 @@ use core::cell::UnsafeCell;
 pub struct UnsafeSyncCell<T: ?Sized>(pub  UnsafeCell<T>);
 unsafe impl<T: ?Sized + Sync> Sync for UnsafeSyncCell<T> {}
 
-    static mut history : [f32; HISTORY_LEN] =  [0.0; HISTORY_LEN];
-    static mut scratch : [f32; SCRATCH_LEN] = [0.0; SCRATCH_LEN];
-async fn sound_main(dlg: &Deluge, ok_model: bool) {
+static mut history : [f32; HISTORY_LEN] =  [0.0; HISTORY_LEN];
+static mut scratch : [f32; SCRATCH_LEN] = [0.0; SCRATCH_LEN];
+
+async fn input_for_sound(input: &Input, leds: &mut Leds) {
+    let res = select(input.next(), Timer::after_millis(500)).await;
+    loop {
+        match input.next().await {
+            Event::Button  { id: _, pressed: true }  => {
+                leds.set(controls::button::KIT, true).await;
+            }
+            _ => {},
+        }
+    }
+}
+
+async fn sound_main(audio: Audio, ok_model: bool) {
     let drive = 2.5;
     let mut first = 0;
     let mut input = [0.0; sampel];
     let mut output = [0.0; sampel];
     let mut history_counter : usize = 0;
 
-    dlg.audio() .process(move |block: &mut [StereoFrame]| {
+    audio.process(move |block: &mut [StereoFrame]| {
         if devreload::UPLOAD_ACTIVE.load(Ordering::Acquire) {
             for f in block {
                 f.l = 0.0;
